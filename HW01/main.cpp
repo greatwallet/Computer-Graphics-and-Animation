@@ -52,7 +52,7 @@ void drawPolyDino()
 
 void drawDino(void)
 {
-	initEdgeTable();
+	initNET();
 	drawPolyDino();
 	printf("\nTable");
 	printTable();
@@ -73,5 +73,6 @@ void main(int argc, char** argv)
 	glutMainLoop();
 
 	fclose(fp);
-	delete NET;
+	delete AET;
+	delete[] NET;
 }

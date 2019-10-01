@@ -11,8 +11,11 @@
 extern const int X_POS, Y_POS, X_MAX, Y_MAX;
 extern FILE *fp;
 
-extern EdgeTableTuple AET;
-extern EdgeTableTuple* NET;
+// zero edge means no edge
+extern const Edge ZERO_EDGE;
+
+extern Edge* AET;
+extern Edge** NET;
 
 void myInit(void);
 #endif

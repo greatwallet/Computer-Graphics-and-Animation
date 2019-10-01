@@ -2,42 +2,32 @@
 #ifndef _ET_H_
 #define _ET_H_
 
-#define maxVer 10000 
 // Start from lower left corner 
 // For both AET and NET
-typedef struct edgebucket
+typedef struct edge
 {
 	int ymax; //max y-coordinate of edge 
 	float xofymin; //x-coordinate of lowest edge point updated only in aet 
 	float slopeinverse;
-}EdgeBucket;
+	edge* next;
+}Edge;
 
-// ET list
-typedef struct edgetabletup
-{
-	// the array will give the scanline number 
-	// The edge table (ET) with edges entries sorted 
-	// in increasing y and x of the lower end 
 
-	int countEdgeBucket; //no. of edgebuckets 
-	EdgeBucket buckets[maxVer];
-}EdgeTableTuple;
+void initNET();
 
-void initEdgeTable();
-
-void printTuple(EdgeTableTuple *tup);
+void printTuple(Edge *tup);
 
 void printTable();
 
-void insertionSort(EdgeTableTuple *ett);
+void insertionSort(Edge *&ett);
 
-void storeEdgeInTuple(EdgeTableTuple *receiver, int ym, int xm, float slopInv);
+void storeEdgeInTuple(Edge *&receiver, int ym, int xm, float slopInv);
 
 void storeEdgeInTable(int x1, int y1, int x2, int y2);
 
-void removeEdgeByYmax(EdgeTableTuple *Tup, int yy);
+void removeEdgeByYmax(Edge *&Tup, int yy);
 
-void updatexbyslopeinv(EdgeTableTuple *Tup);
+void updatexbyslopeinv(Edge *&Tup);
 
 void ScanlineFill();
 #endif // !_ET_H_
