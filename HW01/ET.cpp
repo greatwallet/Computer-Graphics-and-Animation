@@ -16,23 +16,21 @@ void initNET()
 void printTuple(Edge *tup)
 {
 	for (Edge* e = tup; e != nullptr; e = e->next)
-	{
-		printf(" %d+%.2f+%.2f",
+		printf(" %d + %.2f + %.2f --> ",
 			e->ymax, e->xofymin, e->slopeinverse);
-	}
 }
 
 // print NET
 void printTable()
 {
-	int i;
-
-	for (i = 0; i<Y_MAX; i++)
+	for (int y = 0; y < Y_MAX; y++)
 	{
-		if (NET[i] != nullptr)
-			printf("\nScanline %d", i);
-
-		printTuple(NET[i]);
+		if (NET[y] != nullptr)
+		{
+			printf("\n y = %d: ", y);
+			printTuple(NET[y]);
+			printf(" ^ ");
+		}
 	}
 }
 
@@ -74,7 +72,7 @@ void insertionSort(Edge *&ett)
 	}
 }
 
-// TODO: merge the insert and store altogether
+// merge the insert and store altogether using insertion sort
 void storeEdgeInTuple(Edge *&receiver, int ym, int xm, float slopInv)
 {
 	// both used for edgetable and active edge table.. 
@@ -82,24 +80,58 @@ void storeEdgeInTuple(Edge *&receiver, int ym, int xm, float slopInv)
 
 	Edge *nedge = new Edge;
 	nedge->ymax = ym;nedge->xofymin = (float)xm;nedge->slopeinverse = slopInv;nedge->next = nullptr;
-	// for elements < 2
+	// for elements == 0
 	if (receiver == nullptr)
 	{
 		receiver = nedge;
 		return;
 	}
+	// for elements == 1
 	else if (receiver->next == nullptr)
-		receiver->next = nedge;
-	// for elements >= 2 
+	{
+		// if should insert before the head
+		if (receiver->xofymin > (float)xm)
+		{
+			nedge->next = receiver;
+			receiver = nedge;
+			return;
+		}
+		else
+		{
+			receiver->next = nedge;
+			nedge->next = nullptr;
+		}
+	}
+	// for elements >= 2
 	else
 	{
-		Edge *p, *psucc;
-		for (p = receiver, psucc = receiver->next;psucc != nullptr;p = p->next, psucc = psucc->next);
-		p->next = nedge;
+		// if should insert before the head
+		if (receiver->xofymin > (float)xm)
+		{
+			nedge->next = receiver;
+			receiver = nedge;
+			return;
+		}
+		bool insertFlag = false;
+		Edge *p, *p_pred;
+		for (p = receiver, p_pred = receiver;p != nullptr;p = p->next, p_pred = p_pred->next)
+		{
+			if (p == receiver->next)p_pred = receiver;
+			if (p->xofymin > (float)xm)
+			{
+				p_pred->next = nedge;
+				nedge->next = p;
+				insertFlag = true;
+				break;
+			}
+		}
+		// if should insert at last
+		if (!insertFlag && p == nullptr)
+		{
+			p_pred->next = nedge;
+			nedge->next = nullptr;
+		}
 	}
-
-	// sort the buckets 
-	insertionSort(receiver);
 }
 
 // store edge in NET of line(x1,y1)-->(x2,y2)
@@ -215,9 +247,7 @@ void ScanlineFill()
 		// 1. Copy from NET bucket y to the 
 		// AET those edges whose ymin = y (entering edges) 
 		for (Edge *p = NET[y];p != nullptr;p = p->next)
-		{
 			storeEdgeInTuple(AET, p->ymax, p->xofymin, p->slopeinverse);
-		}
 		printTuple(AET);
 
 		// 2. Remove from AET those edges for 
