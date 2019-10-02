@@ -7,6 +7,8 @@
 
 // Global Variables
 
+// CONST
+extern const float PI;
 // Position and size
 extern const int X_POS, Y_POS, X_MAX, Y_MAX;
 extern FILE *fp;

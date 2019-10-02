@@ -5,7 +5,7 @@
 
 // Position and size
 const int X_POS = 100, Y_POS = 150, X_MAX = 800, Y_MAX = 600;
-
+const float PI = 3.14159265358;
 FILE *fp;
 
 
