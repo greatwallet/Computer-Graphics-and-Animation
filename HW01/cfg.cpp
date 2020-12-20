@@ -5,16 +5,18 @@
 
 // Position and size
 const int X_POS = 100, Y_POS = 150, X_MAX = 800, Y_MAX = 600;
-
+const float PI = 3.14159265358;
 FILE *fp;
 
-EdgeTableTuple AET;
-EdgeTableTuple* NET = new EdgeTableTuple[Y_MAX];
+
+const Edge ZERO_EDGE = { -1,-1.0,-INFINITY };
+Edge* AET = nullptr;
+Edge** NET = new Edge*[Y_MAX];
 
 void myInit(void)
 {
 	// background coler
-	fp = fopen("Rectangle.txt", "r");
+	fp = fopen("PolyDino.txt", "r");
 	if (fp == NULL)
 	{
 		printf("Could not open file");

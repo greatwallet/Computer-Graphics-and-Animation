@@ -3,88 +3,135 @@
 #include <GL/glut.h> 
 
 // Scanline Function 
-void initEdgeTable()
+void initNET()
 {
 	int i;
 	for (i = 0; i < Y_MAX; i++)
-	{
-		NET[i].countEdgeBucket = 0;
-	}
+		NET[i] = nullptr;
 
-	AET.countEdgeBucket = 0;
+	AET = nullptr;
 }
 
 // Print AET or NET
-void printTuple(EdgeTableTuple *tup)
+void printTuple(Edge *tup)
 {
-	int j;
-
-	if (tup->countEdgeBucket)
-		printf("\nCount %d-----\n", tup->countEdgeBucket);
-
-	for (j = 0; j<tup->countEdgeBucket; j++)
-	{
-		printf(" %d+%.2f+%.2f",
-			tup->buckets[j].ymax, tup->buckets[j].xofymin, tup->buckets[j].slopeinverse);
-	}
+	for (Edge* e = tup; e != nullptr; e = e->next)
+		printf(" %d + %.2f + %.2f --> ",
+			e->ymax, e->xofymin, e->slopeinverse);
 }
 
 // print NET
 void printTable()
 {
-	int i, j;
-
-	for (i = 0; i<Y_MAX; i++)
+	for (int y = 0; y < Y_MAX; y++)
 	{
-		if (NET[i].countEdgeBucket)
-			printf("\nScanline %d", i);
-
-		printTuple(&NET[i]);
+		if (NET[y] != nullptr)
+		{
+			printf("\n y = %d: ", y);
+			printTuple(NET[y]);
+			printf(" ^ ");
+		}
 	}
 }
 
 
 /* Function to sort an array using insertion sort*/
-void insertionSort(EdgeTableTuple *ett)
+void insertionSort(Edge *&ett)
 {
-	int i, j;
-	EdgeBucket temp;
-
-	for (i = 1; i < ett->countEdgeBucket; i++)
+	if (ett == nullptr)return;
+	else if (ett->next == nullptr)return;
+	for (Edge *p_pred = ett, *p = ett->next; p != nullptr && p_pred != nullptr; p_pred = p_pred->next, p = p->next)
 	{
-		temp.ymax = ett->buckets[i].ymax;
-		temp.xofymin = ett->buckets[i].xofymin;
-		temp.slopeinverse = ett->buckets[i].slopeinverse;
-		j = i - 1;
-
-		while ((temp.xofymin < ett->buckets[j].xofymin) && (j >= 0))
+		// find the insert spot
+		Edge *pp_pred, *pp;
+		for (Edge *pp_pred = ett, *pp = ett;pp != p;pp_pred = pp_pred->next, pp = pp->next)
 		{
-			ett->buckets[j + 1].ymax = ett->buckets[j].ymax;
-			ett->buckets[j + 1].xofymin = ett->buckets[j].xofymin;
-			ett->buckets[j + 1].slopeinverse = ett->buckets[j].slopeinverse;
-			j = j - 1;
+			if (pp == ett->next)pp_pred = ett;
+
+			if (pp->xofymin > p->xofymin)
+			{
+				if (pp == ett)
+				{
+					Edge *temp = ett;
+					p_pred->next = p->next;
+					ett = p;
+					ett->next = temp;
+					p = p_pred->next;
+				}
+				else
+				{
+					p_pred->next = p->next;
+					pp_pred->next = p;
+					p->next = pp;
+					p = p_pred->next;
+				}
+				break;
+			}	
 		}
-		ett->buckets[j + 1].ymax = temp.ymax;
-		ett->buckets[j + 1].xofymin = temp.xofymin;
-		ett->buckets[j + 1].slopeinverse = temp.slopeinverse;
+		if (p == nullptr)break;
 	}
 }
 
-
-void storeEdgeInTuple(EdgeTableTuple *receiver, int ym, int xm, float slopInv)
+// merge the insert and store altogether using insertion sort
+void storeEdgeInTuple(Edge *&receiver, int ym, int xm, float slopInv)
 {
 	// both used for edgetable and active edge table.. 
 	// The edge tuple sorted in increasing ymax and x of the lower end. 
-	(receiver->buckets[(receiver)->countEdgeBucket]).ymax = ym;
-	(receiver->buckets[(receiver)->countEdgeBucket]).xofymin = (float)xm;
-	(receiver->buckets[(receiver)->countEdgeBucket]).slopeinverse = slopInv;
 
-	// sort the buckets 
-	insertionSort(receiver);
-
-	(receiver->countEdgeBucket)++;
-
-
+	Edge *nedge = new Edge;
+	nedge->ymax = ym;nedge->xofymin = (float)xm;nedge->slopeinverse = slopInv;nedge->next = nullptr;
+	// for elements == 0
+	if (receiver == nullptr)
+	{
+		receiver = nedge;
+		return;
+	}
+	// for elements == 1
+	else if (receiver->next == nullptr)
+	{
+		// if should insert before the head
+		if (receiver->xofymin > (float)xm)
+		{
+			nedge->next = receiver;
+			receiver = nedge;
+			return;
+		}
+		else
+		{
+			receiver->next = nedge;
+			nedge->next = nullptr;
+		}
+	}
+	// for elements >= 2
+	else
+	{
+		// if should insert before the head
+		if (receiver->xofymin > (float)xm)
+		{
+			nedge->next = receiver;
+			receiver = nedge;
+			return;
+		}
+		bool insertFlag = false;
+		Edge *p, *p_pred;
+		for (p = receiver, p_pred = receiver;p != nullptr;p = p->next, p_pred = p_pred->next)
+		{
+			if (p == receiver->next)p_pred = receiver;
+			if (p->xofymin > (float)xm)
+			{
+				p_pred->next = nedge;
+				nedge->next = p;
+				insertFlag = true;
+				break;
+			}
+		}
+		// if should insert at last
+		if (!insertFlag && p == nullptr)
+		{
+			p_pred->next = nedge;
+			nedge->next = nullptr;
+		}
+	}
 }
 
 // store edge in NET of line(x1,y1)-->(x2,y2)
@@ -111,7 +158,7 @@ void storeEdgeInTable(int x1, int y1, int x2, int y2)
 		printf("\nSlope string for %d %d & %d %d: %f", x1, y1, x2, y2, minv);
 	}
 
-	if (y1>y2)
+	if (y1 > y2)
 	{
 		scanline = y2;
 		ymaxTS = y1;
@@ -124,42 +171,57 @@ void storeEdgeInTable(int x1, int y1, int x2, int y2)
 		xwithyminTS = x1;
 	}
 	// the assignment part is done..now storage.. 
-	storeEdgeInTuple(&NET[scanline], ymaxTS, xwithyminTS, minv);
-
+	storeEdgeInTuple(NET[scanline], ymaxTS, xwithyminTS, minv);
 
 }
 
 
-void removeEdgeByYmax(EdgeTableTuple *Tup, int yy)
+void removeEdgeByYmax(Edge *&Tup, int yy)
 {
-	int i, j;
-	for (i = 0; i< Tup->countEdgeBucket; i++)
+	if (Tup == nullptr)return;
+	if (Tup->next == nullptr)
 	{
-		if (Tup->buckets[i].ymax == yy)
+		if (Tup->ymax != yy)return;
+		Edge *temp = Tup;
+		Tup = nullptr;
+		delete temp;
+		return;
+	}
+	Edge *p = Tup,*ppred = Tup;
+	while (p != nullptr)
+	{
+		if (p == Tup->next)ppred = Tup;
+		if (p->ymax != yy)
 		{
-			printf("\nRemoved at %d", yy);
-			// simply remove the element by shifting forward the rest
-			for (j = i; j < Tup->countEdgeBucket - 1; j++)
-			{
-				Tup->buckets[j].ymax = Tup->buckets[j + 1].ymax;
-				Tup->buckets[j].xofymin = Tup->buckets[j + 1].xofymin;
-				Tup->buckets[j].slopeinverse = Tup->buckets[j + 1].slopeinverse;
-			}
-			Tup->countEdgeBucket--;
-			i--;
+			p = p->next;
+			ppred = ppred->next;
+			continue;
+		}
+		// p->ymax == yy
+		if (p == Tup)
+		{
+			Edge *temp = Tup;
+			Tup = Tup->next;
+			p = Tup;
+			ppred = Tup;
+			delete temp;
+		}
+		else
+		{
+			Edge *temp = p;
+			ppred->next = temp->next;
+			p = ppred->next;
+			delete temp;
 		}
 	}
+
 }
 
 // Update AET
-void updatexbyslopeinv(EdgeTableTuple *Tup)
+void updatexbyslopeinv(Edge *&Tup)
 {
-	int i;
-
-	for (i = 0; i<Tup->countEdgeBucket; i++)
-	{
-		(Tup->buckets[i]).xofymin = (Tup->buckets[i]).xofymin + (Tup->buckets[i]).slopeinverse;
-	}
+	for (Edge *p = Tup;p != nullptr;p = p->next)
+		p->xofymin += p->slopeinverse;
 }
 
 
@@ -173,49 +235,44 @@ void ScanlineFill()
 	4. Either vertices at local minima or at local maxima are drawn.*/
 
 
-	int i, j, x1, ymax1, x2, ymax2, FillFlag = 0, coordCount;
+	int  x1, ymax1, x2, ymax2, FillFlag = 0, coordCount;
 
 	// we will start from scanline 0; 
 	// Repeat until last scanline: 
 
 	// i means y_current
-	for (i = 0; i<Y_MAX; i++)//4. Increment y by 1 (next scan line) 
+	for (int y = 0; y < Y_MAX; y++)//4. Increment y by 1 (next scan line) 
 	{
 
-		// 1. Move from ET bucket y to the 
+		// 1. Copy from NET bucket y to the 
 		// AET those edges whose ymin = y (entering edges) 
-		for (j = 0; j<NET[i].countEdgeBucket; j++)
-		{
-			storeEdgeInTuple(&AET, NET[i].buckets[j].
-				ymax, NET[i].buckets[j].xofymin,
-				NET[i].buckets[j].slopeinverse);
-		}
-		printTuple(&AET);
+		for (Edge *p = NET[y];p != nullptr;p = p->next)
+			storeEdgeInTuple(AET, p->ymax, p->xofymin, p->slopeinverse);
+		printTuple(AET);
 
 		// 2. Remove from AET those edges for 
 		// which y=ymax (not involved in next scan line) 
-		removeEdgeByYmax(&AET, i);
+		removeEdgeByYmax(AET, y);
 
 		//sort AET (remember: ET is presorted) 
-		insertionSort(&AET);
+		insertionSort(AET);
 
-		printTuple(&AET);
+		printTuple(AET);
 
 		//3. Fill lines on scan line y by using pairs of x-coords from AET 
-		j = 0;
 		FillFlag = 0;
 		coordCount = 0;
 		x1 = 0;
 		x2 = 0;
 		ymax1 = 0;
 		ymax2 = 0;
-		while (j<AET.countEdgeBucket)
+		for (Edge *p = AET;p != nullptr;p = p->next)
 		{
-			// matching 2 vertices
+						// matching 2 vertices
 			if (coordCount % 2 == 0)
 			{
-				x1 = (int)(AET.buckets[j].xofymin);
-				ymax1 = AET.buckets[j].ymax;
+				x1 = (int)(p->xofymin);
+				ymax1 = p->ymax;
 
 				if (x1 == x2)
 				{
@@ -224,29 +281,22 @@ void ScanlineFill()
 					2. lines are towards bottom
 					3. one line is towards top and other is towards bottom
 					*/
-
 					if (((x1 == ymax1) && (x2 != ymax2)) || ((x1 != ymax1) && (x2 == ymax2)))
 					{
 						x2 = x1;
 						ymax2 = ymax1;
 					}
-
 					else
-					{
 						coordCount++;
-					}
 				}
-
 				else
-				{
 					coordCount++;
-				}
 			}
 			// find the first vertice
 			else
 			{
-				x2 = (int)AET.buckets[j].xofymin;
-				ymax2 = AET.buckets[j].ymax;
+				x2 = (int)(p->xofymin);
+				ymax2 = p->ymax;
 
 				FillFlag = 0;
 
@@ -274,30 +324,23 @@ void ScanlineFill()
 					coordCount++;
 					FillFlag = 1;
 				}
-
-
 				if (FillFlag)
 				{
 					//drawing actual lines... 
 					glColor3f(0.0f, 0.7f, 0.0f);
 
 					glBegin(GL_LINES);
-					glVertex2i(x1, i);
-					glVertex2i(x2, i);
+					glVertex2i(x1, y);
+					glVertex2i(x2, y);
 					glEnd();
 					glFlush();
-
 					// printf("\nLine drawn from %d,%d to %d,%d",x1,i,x2,i); 
 				}
-
 			}
-
-			j++;
 		}
 
-
 		// 5. For each nonvertical edge remaining in AET, update x for new y 
-		updatexbyslopeinv(&AET);
+		updatexbyslopeinv(AET);
 	}
 
 
